@@ -22,7 +22,7 @@ typedef struct  {                                   //Struct we pass to thread f
 
 void perror_exit(char *message){
     perror(message);
-    exit(EXIT_FAILURE);
+    exit(1);
 }
 
 int main (int argc, char* argv[]) {
@@ -101,26 +101,34 @@ char* get_fullname(char* line) {
 void* ask_server(void* arg) {
 
     int sock;
-
-    if ((sock = socket(AF_INET, SOCK_STREAM,0)) == -1)       //Create socket
-        perror_exit((char*)"Failed to create socket in client!");
+    char answer[25];
     info* con = (info*) arg;
+    char* full_name = get_fullname(con->line);
+    char* party = con->line + strlen(full_name) + 1;                    //After the full name we are given the party (full name keeps the space too)
 
+    //Create socket
+    if ((sock = socket(AF_INET, SOCK_STREAM,0)) == -1)      
+        perror_exit((char*)"Failed to create socket in client!");
+    //Connect to server
     if(connect(sock, (struct sockaddr *) &(con->server),sizeof (con->server)) < 0)             //Connect to server
         perror_exit((char*)"Can't connect to socket!");
-
-    char* full_name = get_fullname(con->line);
-    write(sock,full_name, 26);                                                //Write to socket the full name /SOCKET SHOULD PROBABLY BE THE INE FROM ACCEPT
-    char answer[30];
-    read(sock,answer,30);                                                   //Read client's answer
-    free(full_name);                                                         //Server got and processed the string we gave him release memory
-    if(strcpy(answer,"ALREADY VOTED")) {                                   //Terminate connection and exit thread if the person has already voted        
+    //Wait until server is ready to process the writing request(once it has written the corresponding message)     
+    read(sock,answer,25);
+    //Write to server the full name(name & surname can be max 12 characters each + 1 the space between them + null terminator)  
+    write(sock,full_name, 26);  
+    //Read server's answer                                               
+    read(sock,answer,25);
+    //Server got and processed the string we gave him release memory    
+    free(full_name);
+    //Terminate connection and exit thread if the person has already voted                                                                                                         
+    if( ! strcmp(answer,"ALREADY VOTED")) {                                          
         close(sock);                                                     
         pthread_exit(NULL);         
     }
-    char* party = con->line + strlen(full_name) + 1;                   //After the full name we are given the party (full name keeps the space too)
     write(sock,party, 100);
-    // read(sock,)                                                        //Wait until you receive the message to close the connection 
+    //Wait until you receive the terminating message to close the connection                    
+    // read(sock,)   
+    //Close socket & exit                                                     
     close(sock);                                                      
     pthread_exit(NULL); 
 }

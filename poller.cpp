@@ -27,8 +27,9 @@ void* worker(void* arg);
 void get_stats(int signo);
 
 pthread_mutex_t mtx;            
-pthread_cond_t empty,full; 
-int cur;                        //First "free" place in buffer array
+pthread_cond_t empty,full;
+//First "free" place in buffer array 
+int cur;                        
 ofstream poll_log, poll_stats;
 int total_votes,loop;
 int* buffer;
@@ -43,29 +44,33 @@ int main (int argc, char* argv[]) {
         exit(1);
     }    
     int portNum = atoi(argv[1]);
-    int numWorkers = atoi(argv[2]);
+    int bufferSize = atoi(argv[2]);
+    if(bufferSize <= 0) {
+        printf("Buffer size should be positive!");
+        exit(1);        
+    }      
+    int numWorkers = atoi(argv[3]);
     if(numWorkers <= 0) {
         printf("Number of worker threads should be positive!");
         exit(1);        
     }
-    int bufferSize = atoi(argv[3]);
-    if(bufferSize <= 0) {
-        printf("Buffer size should be positive!");
-        exit(1);        
-    }    
-    buffer = (int*) malloc(bufferSize * sizeof(int));                          //Buffer with the socket descriptors of the accepted connections
+    //Buffer with the socket descriptors of the accepted connections
+    buffer = (int*) malloc(bufferSize * sizeof(int));       
+    cur = 0;                   
     pthread_t* t_ids = (pthread_t*) malloc(numWorkers * sizeof(pthread_t));         //Array with thread ids
-
-    ofstream poll_log(argv[3]);
-    ofstream poll_stats(argv[4]);
+    //Create and open files to write
+    poll_log.open(argv[4]);
+    poll_stats.open(argv[5]);
+    //Initialize mutex and condition variables
+    pthread_mutex_init(&mtx, NULL); 
+    pthread_cond_init(&empty, NULL);  
+    pthread_cond_init(&full, NULL);      
     int err;
-    //Create & Initialize sigaction structure, we work with it since it is more reliable
+    //Create & Initialize sigaction structure
     static struct sigaction act ;
     act.sa_handler = get_stats;                      
     sigfillset(&(act.sa_mask));                     // ignore every signal when you are in signal handler
     sigaction (SIGINT , &act , NULL );  
-           
-    cur = 0;
     //Create Socket
     int sock;
     if ((sock = socket(AF_INET, SOCK_STREAM,0)) == -1)
@@ -76,24 +81,19 @@ int main (int argc, char* argv[]) {
     server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = htons(portNum);                   /* The given port */
     unsigned int clientlen = sizeof(client);
-        
     //Bind
     if(bind(sock, (struct sockaddr *) &server,sizeof (server)) == -1)
         perror_exit((char*)"Error in binding !");
     //Listen
     if(listen(sock,128) < 0)     
         perror_exit((char*)"Error in listening!");
-
+    //Create worker threads    
     for(int i = 0 ; i < numWorkers; i++) {                                                      //Create threads
-        if((err = pthread_create(t_ids + i, NULL, worker , (void*) worker_arg))) {
+        if((err = pthread_create(t_ids + i, NULL, worker , (void*) NULL))) {
             perror2("Error in server's pthread_create", err);
             exit(1);            
         }
     }
-    //Initialize mutex and condition variables
-    pthread_mutex_init(&mtx, NULL); 
-    pthread_cond_init(&empty, NULL);  
-    pthread_cond_init(&full, NULL);  
     loop = 1;
     while(loop) {
 
@@ -118,11 +118,12 @@ int main (int argc, char* argv[]) {
         }         
     }
 
-
-    poll_log.close();            //Close file descriptors
+    //Close file descriptors
+    poll_log.close();            
     poll_stats.close();
     close(sock);
-    free(t_ids);                //Free memory
+    //Free memory
+    free(t_ids);                
     free(buffer);
     //Destroy mutex and condition variables
     if (err = pthread_mutex_destroy(&mtx)) {
@@ -140,11 +141,11 @@ void* worker(void* arg) {
     int err;
     char full_name[26]; 
     char party[100];
-
-    if (err = pthread_mutex_lock(&mtx)) {                                                // Lock mutex since we are accessing buffer & counter
+    // Lock mutex since we are accessing buffer & counter
+    if (err = pthread_mutex_lock(&mtx)) {                                                
         perror2("pthread_mutex_lock", err); exit(1); } 
-
-    while(cur == 0)                                                                     //Wait until you have at least one socket descriptor
+    //Wait until you have at least one socket descriptor
+    while(cur == 0)                                                                     
         pthread_cond_wait(&empty, &mtx);
     
     int sock = buffer[cur--];                                                           //Get last socket descriptor (LIFO)
@@ -152,18 +153,18 @@ void* worker(void* arg) {
     if (err = pthread_mutex_unlock(&mtx)) {                                             // Unlock mutex => we are exiting critical section
         perror2("pthread_mutex_unlock", err); exit(1);  }     
 
-    write(sock,"SEND NAME PLEASE",25);
+    write(sock,"SEND NAME PLEASE",100);
     read(sock,full_name,26);
-    auto pos = names.find(full_name);
-
-    if(pos == names.end()) {                                                       //If the person has already voted exit the thread
-        write(sock,"ALREADY VOTED",25);
+    //If the person has already voted exit the thread
+    auto pos = names.find(full_name);               
+    if(pos != names.end()) {                                                       
+        write(sock,"ALREADY VOTED",100);
         pthread_exit(NULL); 
     }
     names.insert(full_name);
     //Write in poll_log file
     write(sock,"SEND VOTE PLEASE",25);
-    read(sock,party,100);                                                             //Read given string(name & surname can be max 12 characters each + 1 the space between them + null terminator)    
+    read(sock,party,100);                                                               
     poll_log << full_name;
     poll_log << " " ;
     poll_log << party ;
@@ -174,7 +175,6 @@ void* worker(void* arg) {
         parties[party] = 1;   
     else 
         parties[party] = parties[party] + 1;
-
     //Send message before terminating the connection                                    
     poll_log << "VOTE for Party ";          
     poll_log << party;
