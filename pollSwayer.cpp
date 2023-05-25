@@ -16,7 +16,6 @@
 void* ask_server(void* arg);
 
 typedef struct  {                                   //Struct we pass to thread function so as to connect to server
-
     char line[200];                                //line we will be writing
     struct sockaddr_in server;                    //Server to connect
 } info;
@@ -121,7 +120,7 @@ void* ask_server(void* arg) {
     }
     char* party = con->line + strlen(full_name) + 1;                   //After the full name we are given the party (full name keeps the space too)
     write(sock,party, 100);
-    read(sock,)                                                        //Wait until you receive the message to close the connection 
+    // read(sock,)                                                        //Wait until you receive the message to close the connection 
     close(sock);                                                      
     pthread_exit(NULL); 
 }
