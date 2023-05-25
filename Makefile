@@ -1,23 +1,31 @@
 # Compiler
-CC = gcc
+CC = g++
 
 # Compile Options
-CFLAGS = -Wall -Werror -I -g
+CFLAGS = -Wall -Werror -I -g -pthread
 
 # Executable
-EXEC = mysh
+CLIENT = pollSwayer
 
 # Object files 
-OBJ = aliases.o redirections.o commands.o mysh.o
+OBJC = pollSwayer.o
 
-all: $(EXEC)
+$(CLIENT) : $(OBJC)
+	$(CC) $(CFLAGS) $(OBJC) -o $(CLIENT)  -lrt 
 
-$(EXEC): $(OBJ)
+# Executable
+SERVER = poller
 
-	$(CC) $(CFLAGS) $(OBJ) -o $(EXEC)  -lrt -g
+# Object files 
+OBJS = poller.o
+
+$(SERVER) : $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $(SERVER)  -lrt 
+# $(EXEC): $(OBJ)
+
+# 	$(CC) $(CFLAGS) $(OBJ) -o $(EXEC) -g
 
 run: $(EXEC)
 	./$(EXEC) 
-
 clean:
 	rm -f $(OBJ) $(EXEC) 
