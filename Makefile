@@ -26,7 +26,7 @@ $(SERVER) : $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(SERVER)  -lrt 
 
 run_server: $(SERVER)
-	./$(SERVER)  5634 8 1 pollLog.txt pollStats.txt
+	./$(SERVER)  5634 8 16 pollLog.txt pollStats.txt
 
 clean:
-	rm -f $(OBJC) $(OBJS) $(SERVER) $(CLIENT) 
+	rm -f $(OBJC) $(OBJS) $(SERVER) $(CLIENT) pollStats.txt pollLog.txt
