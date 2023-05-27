@@ -144,7 +144,7 @@ int main (int argc, char* argv[]) {
 void* worker(void* arg) {
 
     int err;
-    char full_name[200] , party[100];
+    char full_name[200] , party[100] , exiting[300];
     // Lock mutex since we are accessing buffer & counter
     if (err = pthread_mutex_lock(&buf_mtx)) {                                                
         perror2("pthread_mutex_lock", err); exit(1); } 
@@ -178,8 +178,7 @@ void* worker(void* arg) {
     //Write in poll_log file
     write(sock,"SEND VOTE PLEASE",25);
     read(sock,party,100);      
-    printf("%s",party);                                                         
-    poll_log << full_name << party << endl;
+    poll_log << full_name << party;
     poll_log.flush();
     //update data structures + maybe the need for extra synch(is current mutex too much?s)
     total_votes++;
@@ -187,11 +186,13 @@ void* worker(void* arg) {
         parties[party] = 1;   
     else 
         parties[party] = parties[party] + 1;
-    //Send message before terminating the connection                                    
-    poll_log << "VOTE for Party " << party << " RECORDED " << endl;
-    poll_log.flush();
     if (err = pthread_mutex_unlock(&file_mtx)) {                                             // Unlock mutex => we are exiting critical section
-        perror2("pthread_mutex_unlock", err); exit(1);  }       
+        perror2("pthread_mutex_unlock", err); exit(1);  }  
+    //Send message before terminating the connection   
+    strcpy(exiting,"VOTE for Party ");
+    strcat(exiting,party); 
+    strcat(exiting," RECORDED \n");  
+    write(sock,exiting,300);                               
     pthread_exit(NULL); 
 }
 

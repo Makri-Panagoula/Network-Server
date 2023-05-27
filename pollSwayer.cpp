@@ -91,7 +91,7 @@ char* get_fullname(char* line) {
 void* ask_server(void* arg) {
 
     int sock,err;
-    char answer[25];
+    char answer[25],exiting[300];
     char* given_line = (char*) arg;   
     //Create socket
     if ((sock = socket(AF_INET, SOCK_STREAM,0)) == -1)      
@@ -112,7 +112,6 @@ void* ask_server(void* arg) {
     //Process line        
     char* full_name = get_fullname(given_line);
     char* party = given_line + strlen(full_name);                    //After the full name we are given the party (full name keeps the space too)
-    party[(strlen(party)) - 1] = '\0';                               //Ignore new line    
     //Write to server the full name(name & surname can be max 12 characters each + 1 the space between them + null terminator)  
     write(sock,full_name, 200);  
     //Read server's answer                                               
@@ -127,7 +126,7 @@ void* ask_server(void* arg) {
     }
     write(sock,party, 100);
     //Wait until you receive the terminating message to close the connection                    
-    // read(sock,)   
+    read(sock,exiting,300);   
     //Close socket & exit                                                     
     close(sock);   
     free(given_line);                                                   
