@@ -26,7 +26,7 @@ void* worker(void* arg);
 
 void get_stats(int signo);
 
-pthread_mutex_t mtx;            
+pthread_mutex_t buf_mtx,file_mtx;            
 pthread_cond_t empty,full;
 //First "free" place in buffer array 
 int cur;                        
@@ -62,10 +62,12 @@ int main (int argc, char* argv[]) {
     poll_log.open(argv[4], ios::out | ios::trunc );
     poll_stats.open(argv[5], ios::out | ios::trunc );
     //Initialize mutex and condition variables
-    pthread_mutex_init(&mtx, NULL); 
+    pthread_mutex_init(&buf_mtx, NULL); 
+    pthread_mutex_init(&file_mtx, NULL); 
     pthread_cond_init(&empty, NULL);  
     pthread_cond_init(&full, NULL);      
     int err;
+    signal(SIGPIPE, SIG_IGN);
     //Create & Initialize signal handler since we have to exit server for Ctrl-C
     // static struct sigaction act ;
     // act.sa_handler = get_stats;                      
@@ -101,17 +103,17 @@ int main (int argc, char* argv[]) {
     }              
     while(loop) {
 
-        if (err = pthread_mutex_lock(&mtx)) {                                                // Lock mutex since we are accessing buffer & counter
+        if (err = pthread_mutex_lock(&buf_mtx)) {                                                // Lock mutex since we are accessing buffer & counter
             perror2("pthread_mutex_lock", err); exit(1); }
 
         while(cur == bufferSize)                                                            //Wait until buffer isn't full to insert an element
-            pthread_cond_wait(&full, &mtx);
+            pthread_cond_wait(&full, &buf_mtx);
 
         if ((buffer[cur++] = accept(sock,(struct sockaddr*) &client, &clientlen)) < 0)      //Accept and store in buffer
             perror_exit((char*)"Error in Accept");
 
         pthread_cond_signal(&empty);                                                        //If buffer had been empty it no longer is (in that case there is only one element and therefore we don't use broadcast)
-        if (err = pthread_mutex_unlock(&mtx)) {                                             // Unlock mutex => we are exiting critical section
+        if (err = pthread_mutex_unlock(&buf_mtx)) {                                             // Unlock mutex => we are exiting critical section
             perror2("pthread_mutex_unlock", err); exit(1);  }       
     }
     for(int i = 0 ; i < numWorkers; i++) {
@@ -127,8 +129,10 @@ int main (int argc, char* argv[]) {
     free(t_ids);                
     free(buffer);
     //Destroy mutex and condition variables
-    if (err = pthread_mutex_destroy(&mtx)) {
+    if (err = pthread_mutex_destroy(&buf_mtx)) {
     perror2("pthread_mutex_destroy", err); exit(1); }
+    if (err = pthread_mutex_destroy(&file_mtx)) {
+    perror2("pthread_mutex_destroy", err); exit(1); }    
     if (err = pthread_cond_destroy(&empty)) {
     perror2("pthread_cond_destroy on empty ", err); exit(1); }
     if (err = pthread_cond_destroy(&full)) {
@@ -140,35 +144,36 @@ int main (int argc, char* argv[]) {
 void* worker(void* arg) {
 
     int err;
-    char full_name[200]; 
-    char party[100];
+    char full_name[200] , party[100];
     // Lock mutex since we are accessing buffer & counter
-    if (err = pthread_mutex_lock(&mtx)) {                                                
+    if (err = pthread_mutex_lock(&buf_mtx)) {                                                
         perror2("pthread_mutex_lock", err); exit(1); } 
     //Wait until you have at least one socket descriptor
     while(cur == 0)                                                                     
-        pthread_cond_wait(&empty, &mtx);
+        pthread_cond_wait(&empty, &buf_mtx);
     //Check if we woke up thread only to properly terminate it    
     if(exit_cond) {
-        if (err = pthread_mutex_unlock(&mtx)) {                                             // Unlock mutex => we are exiting critical section
+        if (err = pthread_mutex_unlock(&buf_mtx)) {                                             // Unlock mutex => we are exiting critical section
             perror2("pthread_mutex_unlock", err); exit(1);  }     
         pthread_exit(NULL); 
     }
     //Get last socket descriptor (LIFO)
     int sock = buffer[cur--];                                                           
     pthread_cond_signal(&full);                                                        //If buffer had been full it no longer is (we can add only 1 more element therefore the signal)                                                                         
-    if (err = pthread_mutex_unlock(&mtx)) {                                             // Unlock mutex => we are exiting critical section
+    if (err = pthread_mutex_unlock(&buf_mtx)) {                                             // Unlock mutex => we are exiting critical section
         perror2("pthread_mutex_unlock", err); exit(1);  }      
 
     write(sock,"SEND NAME PLEASE",25);
     read(sock,full_name,200);
     //If the person has already voted exit the thread
     auto pos = names.find(full_name); 
-    printf("%s",full_name);              
     if(pos != names.end()) {  
-        write(sock,"ALREADY VOTED",25);
+        write(sock,"ALREADY VOTED",25);      
         pthread_exit(NULL); 
     }
+    // Lock mutex since we are accessing common data structures and file
+    if (err = pthread_mutex_lock(&file_mtx)) {                                                
+        perror2("pthread_mutex_lock", err); exit(1); }         
     names.insert(full_name);
     //Write in poll_log file
     write(sock,"SEND VOTE PLEASE",25);
@@ -185,6 +190,8 @@ void* worker(void* arg) {
     //Send message before terminating the connection                                    
     poll_log << "VOTE for Party " << party << " RECORDED " << endl;
     poll_log.flush();
+    if (err = pthread_mutex_unlock(&file_mtx)) {                                             // Unlock mutex => we are exiting critical section
+        perror2("pthread_mutex_unlock", err); exit(1);  }       
     pthread_exit(NULL); 
 }
 
@@ -195,7 +202,6 @@ void* worker(void* arg) {
 //     for (auto i = parties.begin(); i != parties.end(); i++) {
 //         poll_stats << i->first << " " << to_string( i->second ) << endl;
 //     }
-//     poll_stats << "TOTAL "  << to_string(total_votes) << endl;
 //     loop = 0;                               //Exit loop
 //     exit_cond = 1;                         //"Pick up" waiting threads
 //     pthread_cond_broadcast(&empty);
