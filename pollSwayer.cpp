@@ -48,7 +48,7 @@ int main (int argc, char* argv[]) {
     while (fgets(line, sizeof(line), inputFile) != NULL) {                              //Create a thread for every line of the file
         
         char* thread_line = (char*) malloc((strlen(line) + 1) * sizeof(char));
-        strcpy(thread_line,line);
+        strcpy(thread_line,line); 
         if((err = pthread_create(t_ids + line_num, NULL, ask_server, thread_line))) {
             perror2("Error in client's pthread_create", err);
             exit(1);
@@ -91,7 +91,7 @@ char* get_fullname(char* line) {
 void* ask_server(void* arg) {
 
     int sock,err;
-    char answer[25],exiting[300];
+    char answer[25],exiting[200];
     char* given_line = (char*) arg;   
     //Create socket
     if ((sock = socket(AF_INET, SOCK_STREAM,0)) == -1)      
@@ -126,7 +126,7 @@ void* ask_server(void* arg) {
     }
     write(sock,party, 100);
     //Wait until you receive the terminating message to close the connection                    
-    read(sock,exiting,300);   
+    read(sock,exiting,200);   
     //Close socket & exit                                                     
     close(sock);   
     free(given_line);                                                   
