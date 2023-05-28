@@ -33,8 +33,10 @@ int cur;
 ofstream poll_log, poll_stats;
 int total_votes,loop,exit_cond;
 int* buffer;
-set<char*> names;
-map<char*,int> parties;
+//Corresponds name to its "turn" to vote
+map<string,int> names;
+//Corresponds party name to count of votes
+map<string,int> parties;
 
 int main (int argc, char* argv[]) {
 
@@ -172,22 +174,23 @@ void* worker(void* arg) {
         // Lock mutex since we are accessing common data structures and file
         if (err = pthread_mutex_lock(&file_mtx)) {                                                
             perror2("pthread_mutex_lock", err); exit(1); }     
+        poll_stats << full_name << endl;
         if(names.find(full_name) != names.end()) {  
             write(sock,"ALREADY VOTED",25);     
             if (err = pthread_mutex_unlock(&file_mtx)) {                                             // Unlock mutex => we are exiting critical section
                 perror2("pthread_mutex_unlock", err); exit(1);  }               
             continue;
         }       
-        names.insert(full_name);
+        names.insert(make_pair(full_name,total_votes));       
         write(sock,"SEND VOTE PLEASE",25);
         read(sock,party,100);
         //Write in poll_log file  
-        poll_log << full_name << party << flush;
+        poll_log <<full_name << party << flush;
         total_votes++;
         if(parties.find(party) == parties.end())                                        //If party doesn't exist in map we have to insert it
             parties[party] = 1;   
         else 
-            parties[party] = parties[party] + 1;
+            parties.insert(make_pair(party,parties[party] + 1));
         if (err = pthread_mutex_unlock(&file_mtx)) {                                             // Unlock mutex => we are exiting critical section
             perror2("pthread_mutex_unlock", err); exit(1);  }  
         //Send message before terminating the connection   
