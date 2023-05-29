@@ -32,7 +32,7 @@ pthread_t* t_ids;
 //Index of the first "free" place in buffer array 
 int cur;                        
 ofstream poll_log, poll_stats;
-int total_votes,exit_cond,sock;
+int total_votes,exit_cond,sock,numWorkers;
 int* buffer;
 //Corresponds name to its "turn" to vote
 map<string,int> names;
@@ -52,15 +52,14 @@ int main (int argc, char* argv[]) {
         printf("Buffer size should be positive!");
         exit(1);        
     }      
-    int numWorkers = atoi(argv[3]);
-    if(numWorkers <= 0) {
+    if((numWorkers = atoi(argv[3])) <= 0) {
         printf("Number of worker threads should be positive!");
         exit(1);        
     }
     //Buffer with the socket descriptors of the accepted connections
     buffer = (int*) malloc(bufferSize * sizeof(int));       
     cur = 0;                   
-    pthread_t* t_ids = (pthread_t*) malloc(numWorkers * sizeof(pthread_t));         //Array with thread ids
+    t_ids = (pthread_t*) malloc(numWorkers * sizeof(pthread_t));         //Array with thread ids
     //Create and open files to write
     poll_log.open(argv[4], ios::out | ios::trunc );
     poll_stats.open(argv[5], ios::out | ios::trunc );
@@ -152,7 +151,6 @@ void* worker(void* arg) {
         // Lock mutex since we are accessing common data structures and file
         if (err = pthread_mutex_lock(&file_mtx)) {                                                
             perror2("pthread_mutex_lock", err); exit(1); }     
-        poll_stats << full_name << endl;
         if(names.find(full_name) != names.end()) {  
             write(sock,"ALREADY VOTED",25);     
             if (err = pthread_mutex_unlock(&file_mtx)) {                                             // Unlock mutex => we are exiting critical section
@@ -185,10 +183,14 @@ void get_stats(int signo) {
     exit_cond = 1;                         //Exit threads
     pthread_cond_broadcast(&empty);
     for(int i = 0 ; i < numWorkers; i++) {
-        if(pthread_join(t_ids[i],NULL)) {
-            exit(1);
-        }         
+        if(t_ids[i] != pthread_self()) {
+            if(pthread_join(t_ids[i],NULL)) {
+                exit(1);
+            } 
+        }        
     } 
+    printf("Ok\n");
+
     //Write the collected data regarding parties & votes in poll-stat
     for (auto i = parties.begin(); i != parties.end(); i++) {
         poll_stats << i->first << " " << to_string( i->second ) << endl;
