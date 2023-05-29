@@ -28,10 +28,11 @@ void get_stats(int signo);
 
 pthread_mutex_t buf_mtx,file_mtx;            
 pthread_cond_t empty,full;
+pthread_t* t_ids;
 //Index of the first "free" place in buffer array 
 int cur;                        
 ofstream poll_log, poll_stats;
-int total_votes,loop,exit_cond;
+int total_votes,exit_cond,sock;
 int* buffer;
 //Corresponds name to its "turn" to vote
 map<string,int> names;
@@ -71,11 +72,10 @@ int main (int argc, char* argv[]) {
     int err;
     signal(SIGPIPE, SIG_IGN);
     //Create & Initialize signal handler since we have to exit server for Ctrl-C
-    // static struct sigaction act ;
-    // act.sa_handler = get_stats;                      
-    // sigfillset(&(act.sa_mask));                     // ignore every signal when you are in signal handler
-    // sigaction (SIGINT , &act , NULL );  
-    loop = 1;
+    static struct sigaction act ;
+    act.sa_handler = get_stats;                      
+    sigfillset(&(act.sa_mask));                     // ignore every signal when you are in signal handler
+    sigaction (SIGINT , &act , NULL );  
     //Determines whether to terminate threads
     exit_cond = 0;            
     //Create Socket
@@ -103,7 +103,7 @@ int main (int argc, char* argv[]) {
             exit(1);            
         }
     }              
-    while(loop) {
+    while(1) {
         // Lock mutex since we are accessing buffer & counter
         if (err = pthread_mutex_lock(&buf_mtx)) {                                                
             perror2("pthread_mutex_lock", err); exit(1); }
@@ -120,28 +120,6 @@ int main (int argc, char* argv[]) {
         if (err = pthread_mutex_unlock(&buf_mtx)) {                                             
             perror2("pthread_mutex_unlock", err); exit(1);  }       
     }
-    for(int i = 0 ; i < numWorkers; i++) {
-        if(pthread_join(t_ids[i],NULL)) {
-            exit(1);
-        }         
-    }   
-    //Close file descriptors
-    poll_log.close();            
-    poll_stats.close();
-    close(sock);
-    //Free memory
-    free(t_ids);                
-    free(buffer);
-    //Destroy mutex and condition variables
-    if (err = pthread_mutex_destroy(&buf_mtx)) {
-    perror2("pthread_mutex_destroy", err); exit(1); }
-    if (err = pthread_mutex_destroy(&file_mtx)) {
-    perror2("pthread_mutex_destroy", err); exit(1); }    
-    if (err = pthread_cond_destroy(&empty)) {
-    perror2("pthread_cond_destroy on empty ", err); exit(1); }
-    if (err = pthread_cond_destroy(&full)) {
-    perror2("pthread_cond_destroy on full", err); exit(1); }    
-    return 0;
 }
 
 //Responsible for inter-socket communication, updating poll-log file and related data structures
@@ -202,14 +180,36 @@ void* worker(void* arg) {
     pthread_exit(NULL); 
 }
 
-// void get_stats(int signo) {
+void get_stats(int signo) {
 
-//     //Write the collected data regarding parties & votes in poll-stat
-//     for (auto i = parties.begin(); i != parties.end(); i++) {
-//         poll_stats << i->first << " " << to_string( i->second ) << endl;
-//     }
-//     loop = 0;                               //Exit loop
-//     exit_cond = 1;                         //"Pick up" waiting threads
-//     pthread_cond_broadcast(&empty);
- 
-// }
+    exit_cond = 1;                         //Exit threads
+    pthread_cond_broadcast(&empty);
+    for(int i = 0 ; i < numWorkers; i++) {
+        if(pthread_join(t_ids[i],NULL)) {
+            exit(1);
+        }         
+    } 
+    //Write the collected data regarding parties & votes in poll-stat
+    for (auto i = parties.begin(); i != parties.end(); i++) {
+        poll_stats << i->first << " " << to_string( i->second ) << endl;
+    }           
+    //Close file descriptors
+    poll_log.close();            
+    poll_stats.close();
+    close(sock);
+    //Free memory
+    free(t_ids);                
+    free(buffer);
+    int err;
+    //Destroy mutex and condition variables
+    if (err = pthread_mutex_destroy(&buf_mtx)) {
+    perror2("pthread_mutex_destroy", err); exit(1); }
+    if (err = pthread_mutex_destroy(&file_mtx)) {
+    perror2("pthread_mutex_destroy", err); exit(1); }    
+    if (err = pthread_cond_destroy(&empty)) {
+    perror2("pthread_cond_destroy on empty ", err); exit(1); }
+    if (err = pthread_cond_destroy(&full)) {
+    perror2("pthread_cond_destroy on full", err); exit(1); }    
+
+    exit(0);
+}
