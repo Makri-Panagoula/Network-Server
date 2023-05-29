@@ -160,13 +160,14 @@ void* worker(void* arg) {
         names.insert(make_pair(full_name,total_votes));       
         write(sock,"SEND VOTE PLEASE",25);
         read(sock,party,100);
+        party[strlen(party) - 1] = '\0';                                                    //Ignore newline
         //Write in poll_log file  
-        poll_log <<full_name << party << flush;
+        poll_log <<full_name << party << endl;
         total_votes++;
         if(parties.find(party) == parties.end())                                        //If party doesn't exist in map we have to insert it
             parties[party] = 1;   
         else 
-            parties.insert(make_pair(party,parties[party] + 1));
+            parties[party] = parties[party] + 1;
         if (err = pthread_mutex_unlock(&file_mtx)) {                                             // Unlock mutex => we are exiting critical section
             perror2("pthread_mutex_unlock", err); exit(1);  }  
         //Send message before terminating the connection   
@@ -181,20 +182,23 @@ void* worker(void* arg) {
 void get_stats(int signo) {
 
     exit_cond = 1;                         //Exit threads
-    pthread_cond_broadcast(&empty);
-    for(int i = 0 ; i < numWorkers; i++) {
-        if(t_ids[i] != pthread_self()) {
-            if(pthread_join(t_ids[i],NULL)) {
-                exit(1);
-            } 
-        }        
-    } 
-    printf("Ok\n");
-
     //Write the collected data regarding parties & votes in poll-stat
     for (auto i = parties.begin(); i != parties.end(); i++) {
         poll_stats << i->first << " " << to_string( i->second ) << endl;
-    }           
+    }   
+    poll_stats << "TOTAL :" << total_votes <<endl;
+
+    // pthread_cond_broadcast(&empty);
+    // for(int i = 0 ; i < numWorkers; i++) {
+    //     if(t_ids[i] != pthread_self()) {
+    //         if(pthread_join(t_ids[i],NULL)) {
+    //             exit(1);
+    //         } 
+    //     }        
+    // } 
+    // printf("Ok\n");
+
+        
     //Close file descriptors
     poll_log.close();            
     poll_stats.close();
