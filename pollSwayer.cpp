@@ -64,12 +64,11 @@ int main (int argc, char* argv[]) {
             exit(1);
         }         
     }
-
     free(t_ids);
     return 0;
 }
 
-//Returns the full_name string along with a space in the end
+//Returns the full name as a string along with a space in the end
 char* get_fullname(char* line) {
 
     char* full_name = (char*) malloc(200 * sizeof(char));               //same size as line
@@ -129,6 +128,6 @@ void* ask_server(void* arg) {
     read(sock,exiting,200);   
     //Close socket & exit                                                     
     close(sock);   
-    free(given_line);                                                   
+    free(given_line);   
     pthread_exit(NULL); 
 }

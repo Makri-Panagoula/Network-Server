@@ -13,9 +13,6 @@ OBJC = pollSwayer.o
 $(CLIENT) : $(OBJC)
 	$(CC) $(CFLAGS) $(OBJC) -o $(CLIENT)  -lrt 
 
-run_client: $(CLIENT)
-	./$(CLIENT) linux05.di.uoa.gr 5634 inputFile.txt
-
 # make server
 SERVER = poller
 
@@ -25,18 +22,14 @@ OBJS = poller.o
 $(SERVER) : $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(SERVER)  -lrt 
 
-run_server: $(SERVER)
-	./$(SERVER)  5634 8 16 pollLog.txt pollStats.txt
-
 clean:
 	rm -f $(OBJC) $(OBJS) $(SERVER) $(CLIENT) pollStats.txt pollLog.txt
 
 run_test_1 : $(SERVER)
 	./$(SERVER) 5005 10 5 log.txt stat.txt
 
-
 run_test_2 : $(SERVER)
 	./$(SERVER) 5005 3 10 log.txt stat.txt
+	
 run_test_c : $(CLIENT)
-
 	./$(CLIENT) linux05.di.uoa.gr 5005 inputFile

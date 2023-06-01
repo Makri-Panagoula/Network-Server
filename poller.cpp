@@ -116,8 +116,8 @@ int main (int argc, char* argv[]) {
             perror_exit((char*)"Error in Accept");
         else
             buffer[cur++] = val;
-         //If buffer had been empty it no longer is (in that case there is only one element and therefore we don't use broadcast)
-        pthread_cond_broadcast(&empty); 
+        //If buffer had been empty it no longer is (in that case there is only one element and therefore we don't use broadcast)
+        pthread_cond_signal(&empty); 
         // Unlock mutex => we are exiting critical section                                                       
         if (err = pthread_mutex_unlock(&buf_mtx)) {                                             
             perror2("pthread_mutex_unlock", err); exit(1);  }       
@@ -160,20 +160,18 @@ void* worker(void* arg) {
     sigaddset(&set, SIGINT);       
     if (pthread_sigmask(SIG_BLOCK, &set, NULL) != 0)
         printf("Error in mask\n");   
-
     int err;
     char full_name[200] , party[100] , exiting[200];
-    while(! exit_cond) {
+    while(! exit_cond || cur > 0) {
         // Lock mutex since we are accessing buffer & counter
         if (err = pthread_mutex_lock(&buf_mtx)) {                                                
             perror2("pthread_mutex_lock", err); exit(1); } 
         //Wait until you have at least one socket descriptor
         while( ! cur  && ! exit_cond)   {                                                             
             pthread_cond_wait(&empty, &buf_mtx);
-            //Check if we woke up thread only to properly terminate it    
         }
-        if( ! cur) {
-            if (err = pthread_mutex_unlock(&buf_mtx)) {                                             // Unlock mutex => we are exiting critical section
+        if( ! cur) {                                                                //There are no remaining requests => thread only woke up to exit        
+            if (err = pthread_mutex_unlock(&buf_mtx)) {                             // Unlock mutex => we are exiting critical section
                 perror2("pthread_mutex_unlock", err); exit(1);  } 
             pthread_exit(NULL); 
         }
@@ -198,7 +196,8 @@ void* worker(void* arg) {
         names.insert(make_pair(full_name,total_votes));       
         write(sock,"SEND VOTE PLEASE",25);
         read(sock,party,100);
-        party[strlen(party) - 1] = '\0';                                                    //Ignore newline
+        if( party[strlen(party) - 1] == '\n')
+            party[strlen(party) - 1] = '\0';                                                    //Ignore newline
         //Write in poll_log file  
         poll_log <<full_name << party << endl;
         total_votes++;
