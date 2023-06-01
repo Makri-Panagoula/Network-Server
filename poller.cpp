@@ -28,13 +28,15 @@ pthread_mutex_t buf_mtx,file_mtx;
 pthread_cond_t empty,full;
 //Index of the first "free" place in buffer array 
 int cur;                        
-ofstream poll_log;
+ofstream poll_log,poll_stats;
 int total_votes,exit_cond;
 int* buffer;
 //Corresponds name to its "turn" to vote
 map<string,int> names;
 //Corresponds party name to count of votes
 map<string,int> parties;
+//Name of stats file
+char stats_name[200];
 
 void exit_server(int signo);
 
@@ -62,8 +64,7 @@ int main (int argc, char* argv[]) {
     pthread_t* t_ids = (pthread_t*) malloc(numWorkers * sizeof(pthread_t));         //Array with thread ids
     //Create and open files to write
     poll_log.open(argv[4], ios::out | ios::trunc );
-    ofstream poll_stats;
-    poll_stats.open(argv[5], ios::out | ios::trunc );
+    strcpy(stats_name,argv[5]);
     //Initialize mutex and condition variables
     pthread_mutex_init(&buf_mtx, NULL); 
     pthread_mutex_init(&file_mtx, NULL); 
@@ -207,6 +208,12 @@ void* worker(void* arg) {
             parties[party] = 1;   
         else 
             parties[party] = parties[party] + 1;
+        //Write the collected data regarding parties & votes in poll-stat
+        poll_stats.open(stats_name, ios :: trunc);
+        for (auto i = parties.begin(); i != parties.end(); i++) 
+            poll_stats << " " << i->first << " " << to_string( i->second ) << endl;
+        poll_stats << "TOTAL : " << total_votes <<endl; 
+        poll_stats.close();  
         if (err = pthread_mutex_unlock(&file_mtx)) {                                             // Unlock mutex => we are exiting critical section
             perror2("pthread_mutex_unlock", err); exit(1);  }  
         //Send message before terminating the connection   

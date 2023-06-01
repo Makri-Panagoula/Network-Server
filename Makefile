@@ -23,7 +23,7 @@ $(SERVER) : $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(SERVER)  -lrt 
 
 clean:
-	rm -f $(OBJC) $(OBJS) $(SERVER) $(CLIENT) stat.txt log.txt
+	rm -f $(OBJC) $(OBJS) $(SERVER) $(CLIENT) stat.txt log.txt  tallyResultsFile pollerResultsFile
 
 run_test_1 : $(SERVER)
 	./$(SERVER) 5005 10 5 log.txt stat.txt
@@ -33,3 +33,12 @@ run_test_2 : $(SERVER)
 
 run_test_c : $(CLIENT)
 	./$(CLIENT) linux05.di.uoa.gr 5005 inputFile
+
+create :
+	./create_input.sh political_parties.txt 50
+
+tally : 
+	./tallyVotes.sh tallyResultsFile
+
+log : 
+	./processLogFile.sh log.txt

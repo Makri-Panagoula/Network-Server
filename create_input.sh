@@ -19,7 +19,7 @@ if [ ! -r $1 ]
 fi
 
 sort  -u -o $1 $1        #ensure that political parties are unique
-touch inputFile      #create wanted file
+touch inputFile          #create wanted file
 let "lines = $(wc -l < "$1")"       
 
 for(( i = 0 ; i < $2 ; i++))
