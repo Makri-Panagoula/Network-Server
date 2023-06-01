@@ -19,7 +19,7 @@ if [ ! -r $1 ]
 fi
 
 sort  -u -o $1 $1        #ensure that political parties are unique
-touch inputFile.txt      #create wanted file
+touch inputFile      #create wanted file
 let "lines = $(wc -l < "$1")"       
 
 for(( i = 0 ; i < $2 ; i++))
@@ -42,7 +42,7 @@ do
     name="$initial_n$rest_n"
     surname="$initial_s$rest_s"
     to_write="$name $surname $line"             #concatenate them all in a string and store  in file
-    echo "$to_write" >> inputFile.txt              
+    echo "$to_write" >> inputFile              
    
 done
 

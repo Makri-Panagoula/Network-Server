@@ -15,11 +15,13 @@ if [ ! -r $1 ]
     exit 1
 fi
 
+cat $1 > tmp.txt             #copy poll-log file contents in tmp because we shouldn't alter given file
+
 #ensure there are no duplicate votes by sorting and keeping the unique "tuples" of the first two columns (delimiter (t = ' '))
-#sorting also ensures we will be getting the parties in the same order as in tallyResults (important for diff)
 sort -u -t ' ' -k 1,2 -s -o $1 $1 
 #get frequency count of values from the third column till the last and store it in the output file given in command line
-awk -F ' ' '{for(i=3;i<=NF;i+=1) { printf OFS $i }; print "";}' $1 | uniq -c | sort -nr  > tmp.txt
+awk -F ' ' '{for(i=3;i<=NF;i+=1) { printf OFS $i }; print "";}' tmp.txt > pollerResultsFile
+sort pollerResultsFile | uniq -c > tmp.txt
 #remove last line from the final output file because sort creates an empty line and therefore from the previous sorts it returns us a count=1 for no political party (nonsense)
 sed '$ d' tmp.txt  > pollerResultsFile 
 #keep the same output format as in tallyResults for similarity checking

@@ -129,7 +129,7 @@ int main (int argc, char* argv[]) {
     } 
     //Write the collected data regarding parties & votes in poll-stat
     for (auto i = parties.begin(); i != parties.end(); i++) 
-        poll_stats << i->first << " " << to_string( i->second ) << endl;
+        poll_stats << " " << i->first << " " << to_string( i->second ) << endl;
        
     poll_stats << "TOTAL : " << total_votes <<endl;    
     //Close file descriptors
@@ -162,7 +162,9 @@ void* worker(void* arg) {
         printf("Error in mask\n");   
     int err;
     char full_name[200] , party[100] , exiting[200];
-    while(! exit_cond || cur > 0) {
+
+    //Keep on serving requests from client until you must exit and you don't have any left
+    while(! exit_cond || cur > 0) {                                                
         // Lock mutex since we are accessing buffer & counter
         if (err = pthread_mutex_lock(&buf_mtx)) {                                                
             perror2("pthread_mutex_lock", err); exit(1); } 
@@ -196,8 +198,8 @@ void* worker(void* arg) {
         names.insert(make_pair(full_name,total_votes));       
         write(sock,"SEND VOTE PLEASE",25);
         read(sock,party,100);
-        if( party[strlen(party) - 1] == '\n')
-            party[strlen(party) - 1] = '\0';                                                    //Ignore newline
+        if( party[strlen(party) - 1] == '\n' || party[strlen(party) - 1] == ' ')
+            party[strlen(party) - 1] = '\0';                                                    //Ignore newline & white space
         //Write in poll_log file  
         poll_log <<full_name << party << endl;
         total_votes++;
