@@ -30,3 +30,13 @@ run_server: $(SERVER)
 
 clean:
 	rm -f $(OBJC) $(OBJS) $(SERVER) $(CLIENT) pollStats.txt pollLog.txt
+
+run_test_1 : $(SERVER)
+	./$(SERVER) 5005 10 5 log.txt stat.txt
+
+
+run_test_2 : $(SERVER)
+	./$(SERVER) 5005 3 10 log.txt stat.txt
+run_test_c : $(CLIENT)
+
+	./$(CLIENT) linux05.di.uoa.gr 5005 inputFile
