@@ -47,7 +47,7 @@ int main (int argc, char* argv[]) {
     //For every line in the file we create a thread that attempts to connect to server and write the line to
     while (fgets(line, sizeof(line), inputFile) != NULL) {                              //Create a thread for every line of the file
         
-        char* thread_line = (char*) malloc((strlen(line) + 1) * sizeof(char));
+        char* thread_line = (char*) malloc( 200 * sizeof(char));
         strcpy(thread_line,line); 
         if((err = pthread_create(t_ids + line_num, NULL, ask_server, thread_line))) {
             perror2("Error in client's pthread_create", err);
@@ -68,7 +68,7 @@ int main (int argc, char* argv[]) {
     return 0;
 }
 
-//Returns the full name as a string along with a space in the end
+//Returns the full name as a new string along with a space in the end
 char* get_fullname(char* line) {
 
     char* full_name = (char*) malloc(200 * sizeof(char));               //same size as line

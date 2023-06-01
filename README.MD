@@ -1,1 +1,4 @@
-The inputeFile has votes saved in the format : Name Surname PoliticalParty.I chose to consider main as my master thread.We get the soket descriptors from the buffer in a LIFO order.When we shutdown, we complete the client's requests we had already started executing as well as the pending ones in the buffer. We update both the log and the statistics file every time we get a new vote.
+Some things in general to consider :
+    The inputeFile , tallyVotes , pollerResultFile , poll-log ,poll-stats have votes saved in the format : Name Surname PoliticalParty. In processLogFile we check for differences between poll-stats and pollerResultFile as the outcomes must be the same (unlike tallyVotes where thread execution makes it uncertain in case of duplicates).I chose to consider main as my master thread.We get the soket descriptors from the buffer in a LIFO order.When we shutdown, we complete the client's requests we had already started executing as well as the pending ones in the buffer. We update both the log and the statistics file every time we get a new vote.
+
+Synching in buffer is being achieved with two condition variables that are protected by buf_mtx.
