@@ -19,9 +19,19 @@ cat inputFile > tmp.txt             #copy inputFile contents in tmp because we s
 
 #ensure there are no duplicate votes by sorting and keeping the unique "tuples" of the first two columns (delimiter (t = ' '))
 sort -u -t ' ' -k 1,2 -s -o tmp.txt tmp.txt
-#get frequency count of values from the third column till the last and store it in the output file given in command line
+#keep only political parties from given file
 awk -F ' ' '{for(i=3;i<=NF;i+=1) { printf OFS $i }; print "";}' tmp.txt > $1 
+#get frequency count for each political party
 sort $1 | uniq -c > tmp.txt
+#store results in "political Party number of votes" format
+awk -F ' ' '{for(i=2;i<=NF;i+=1) { printf OFS $i }; print OFS $1; } ' tmp.txt > $1
 #remove redundant spaces and tabs
-nawk '{sub(/^[ \t]+/," ")};1' tmp.txt >   $1 
+nawk '{sub(/^[ \t]+/," ")};1' $1 > tmp.txt
+cat tmp.txt > $1
+#store stats file without last line that refers to total vote (if the two scripts have the same number of votes for each political party then they will have the same total number of votes)
+#we need the same format for diff
+sed '$ d' stat.txt > copy.txt
+diff $1 copy.txt
+rm tmp.txt 
+rm copy.txt      
 exit 0

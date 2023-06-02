@@ -24,7 +24,7 @@ void perror_exit(char *message){
 
 void* worker(void* arg);
 
-pthread_mutex_t buf_mtx,file_mtx;            
+pthread_mutex_t buf_mtx,log_mtx,stat_mtx;            
 pthread_cond_t empty,full;
 //Index of the first "free" place in buffer array 
 int cur;                        
@@ -65,9 +65,10 @@ int main (int argc, char* argv[]) {
     //Create and open files to write
     poll_log.open(argv[4], ios::out | ios::trunc );
     strcpy(stats_name,argv[5]);
-    //Initialize mutex and condition variables
+    //Initialize mutexes and condition variables
     pthread_mutex_init(&buf_mtx, NULL); 
-    pthread_mutex_init(&file_mtx, NULL); 
+    pthread_mutex_init(&stat_mtx, NULL); 
+    pthread_mutex_init(&log_mtx, NULL); 
     pthread_cond_init(&empty, NULL);  
     pthread_cond_init(&full, NULL);      
     int err;
@@ -76,7 +77,7 @@ int main (int argc, char* argv[]) {
     static struct sigaction act ;
     act.sa_handler = exit_server;                      
     sigfillset(&(act.sa_mask));                    
-    sigaction (SIGINT , &act , NULL );  
+    sigaction(SIGINT , &act , NULL );  
     //Determines whether to terminate threads
     exit_cond = 0;            
     //Create Socket
@@ -143,8 +144,10 @@ int main (int argc, char* argv[]) {
     //Destroy mutex and condition variables
     if (err = pthread_mutex_destroy(&buf_mtx)) {
     perror2("pthread_mutex_destroy", err); exit(1); }
-    if (err = pthread_mutex_destroy(&file_mtx)) {
-    perror2("pthread_mutex_destroy", err); exit(1); }    
+    if (err = pthread_mutex_destroy(&log_mtx)) {
+    perror2("pthread_mutex_destroy", err); exit(1); }   
+    if (err = pthread_mutex_destroy(&stat_mtx)) {
+    perror2("pthread_mutex_destroy", err); exit(1); }         
     if (err = pthread_cond_destroy(&empty)) {
     perror2("pthread_cond_destroy on empty ", err); exit(1); }
     if (err = pthread_cond_destroy(&full)) {
@@ -188,34 +191,43 @@ void* worker(void* arg) {
         read(sock,full_name,200);
         //If the person has already voted exit the thread
         // Lock mutex since we are accessing common data structures and file
-        if (err = pthread_mutex_lock(&file_mtx)) {                                                
-            perror2("pthread_mutex_lock", err); exit(1); }     
+        if (err = pthread_mutex_lock(&log_mtx)) {                                                
+            perror2("pthread_mutex_lock", err); exit(1); } 
+
         if(names.find(full_name) != names.end()) {  
             write(sock,"ALREADY VOTED",25);     
-            if (err = pthread_mutex_unlock(&file_mtx)) {                                             // Unlock mutex => we are exiting critical section
+            if (err = pthread_mutex_unlock(&log_mtx)) {                                             // Unlock mutex => we are exiting critical section
                 perror2("pthread_mutex_unlock", err); exit(1);  }               
             continue;
         }       
+
         names.insert(make_pair(full_name,total_votes));       
         write(sock,"SEND VOTE PLEASE",25);
         read(sock,party,100);
-        if( party[strlen(party) - 1] == '\n' || party[strlen(party) - 1] == ' ')
-            party[strlen(party) - 1] = '\0';                                                    //Ignore newline & white space
-        //Write in poll_log file  
-        poll_log <<full_name << party << endl;
+        if( party[strlen(party) - 1] == '\n' || party[strlen(party) - 1] == ' ')                   //Ignore newline & white space
+            party[strlen(party) - 1] = '\0';  
+
+        poll_log <<full_name << party << endl;                                                   //Write in poll_log file  
+        if (err = pthread_mutex_unlock(&log_mtx)) {                                             // Unlock mutex => we are done with poll-log file for now
+            perror2("pthread_mutex_unlock", err); exit(1);  }  
+        //We will process stats file => lock respective mutex
+        if (err = pthread_mutex_lock(&stat_mtx)) {                                                
+            perror2("pthread_mutex_lock", err); exit(1); }   
+
         total_votes++;
         if(parties.find(party) == parties.end())                                        //If party doesn't exist in map we have to insert it
             parties[party] = 1;   
         else 
             parties[party] = parties[party] + 1;
-        //Write the collected data regarding parties & votes in poll-stat
+        //Write the collected data regarding parties & votes in poll-stat (overwriting previous ones)
         poll_stats.open(stats_name, ios :: trunc);
         for (auto i = parties.begin(); i != parties.end(); i++) 
             poll_stats << " " << i->first << " " << to_string( i->second ) << endl;
         poll_stats << "TOTAL : " << total_votes <<endl; 
         poll_stats.close();  
-        if (err = pthread_mutex_unlock(&file_mtx)) {                                             // Unlock mutex => we are exiting critical section
-            perror2("pthread_mutex_unlock", err); exit(1);  }  
+
+        if (err = pthread_mutex_unlock(&stat_mtx)) {                                             // Unlock mutex => we are done with the file
+            perror2("pthread_mutex_unlock", err); exit(1);  } 
         //Send message before terminating the connection   
         strcpy(exiting,"VOTE for Party ");
         strcat(exiting,party); 

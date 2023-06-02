@@ -22,24 +22,24 @@ sort  -u -o $1 $1        #ensure that political parties are unique
 touch inputFile          #create wanted file
 let "lines = $(wc -l < "$1")"       
 
-for(( i = 0 ; i < $2 ; i++))
+for(( i = 0 ; i < $2 ; i++))                        #create numLines such lines
 do
-    let "name_len = $RANDOM % 10 + 3" #pick a random size for name & surname in the range of [3,12]
+    let "name_len = $RANDOM % 10 + 3"               #pick a random size for name & surname in the range of [3,12]
     let "sur_len = $RANDOM % 10 + 3"   
-    let "line_num = $RANDOM % lines + 1"            #make sure the line number we are taking is in an acceptable range
-    line=$(head -n $line_num  "$1" | tail -1)       #read line from file
+    let "line_num = $RANDOM % lines + 1"            #pick a random line from political parties & make sure the line number we are taking is in an acceptable range
+    line=$(head -n $line_num  "$1" | tail -1)       #read line from file to get the party
 
     #name and surname should start with a capital letter and the rest should be small letters
     initial_n=$(tr -dc A-Z </dev/urandom | head -c 1)
     initial_s=$(tr -dc A-Z </dev/urandom | head -c 1)
 
-    let "num_r = $name_len - 1"
+    let "num_r = $name_len - 1"                  #we have already picked the first character so we have one less to choose
     let "sur_r = $sur_len - 1"
 
     rest_n=$(tr -dc a-z </dev/urandom | head -c $num_r)
     rest_s=$(tr -dc a-z </dev/urandom | head -c $sur_r)
 
-    name="$initial_n$rest_n"
+    name="$initial_n$rest_n"                    #concatenate first letter with the rest of the string
     surname="$initial_s$rest_s"
     to_write="$name $surname $line"             #concatenate them all in a string and store  in file
     echo "$to_write" >> inputFile              

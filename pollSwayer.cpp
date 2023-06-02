@@ -49,7 +49,7 @@ int main (int argc, char* argv[]) {
         
         char* thread_line = (char*) malloc( 200 * sizeof(char));
         strcpy(thread_line,line); 
-        if((err = pthread_create(t_ids + line_num, NULL, ask_server, thread_line))) {
+        if((err = pthread_create(t_ids + line_num, NULL, ask_server, thread_line))) {       //Create threads
             perror2("Error in client's pthread_create", err);
             exit(1);
         } 
